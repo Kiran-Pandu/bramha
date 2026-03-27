@@ -1,0 +1,109 @@
+{
+  "entities": [
+    {
+      "id": "P-100",
+      "name": "Arjun Rao",
+      "kind": "Person",
+      "description": "Logistics broker coordinating warehouse transfers across the east corridor.",
+      "risk_score": 86,
+      "location": "Kolkata",
+      "metadata": {
+        "aliases": ["A. Rao", "Broker-17"],
+        "status": "Priority watch"
+      }
+    },
+    {
+      "id": "P-101",
+      "name": "Meera Sen",
+      "kind": "Person",
+      "description": "Financial analyst whose reports surfaced in multiple shell-company audits.",
+      "risk_score": 72,
+      "location": "Delhi",
+      "metadata": {
+        "aliases": ["M. Sen"],
+        "status": "Under review"
+      }
+    },
+    {
+      "id": "O-200",
+      "name": "Northstar Imports",
+      "kind": "Organization",
+      "description": "Import-export firm with mismatched manifests and repeated customs exceptions.",
+      "risk_score": 91,
+      "location": "Mumbai",
+      "metadata": {
+        "sector": "Trade",
+        "status": "Flagged"
+      }
+    },
+    {
+      "id": "L-300",
+      "name": "Dock 14",
+      "kind": "Location",
+      "description": "Transit storage site connected to three irregular shipments this quarter.",
+      "risk_score": 64,
+      "location": "Chennai",
+      "metadata": {
+        "type": "Port facility"
+      }
+    },
+    {
+      "id": "A-400",
+      "name": "Ledger-Blue",
+      "kind": "Asset",
+      "description": "Encrypted bookkeeping archive recovered from a seized courier tablet.",
+      "risk_score": 88,
+      "location": "Evidence Vault",
+      "metadata": {
+        "format": "Encrypted archive",
+        "status": "Awaiting full decryption"
+      }
+    }
+  ],
+  "events": [
+    {
+      "id": "E-900",
+      "title": "Customs anomaly review",
+      "kind": "Audit",
+      "event_date": "2026-02-11",
+      "location": "Mumbai",
+      "summary": "Manifest discrepancies link Northstar Imports to an unregistered cold-chain route."
+    },
+    {
+      "id": "E-901",
+      "title": "Warehouse camera match",
+      "kind": "Surveillance",
+      "event_date": "2026-02-19",
+      "location": "Kolkata",
+      "summary": "Vehicle plate tied to Arjun Rao appears during an off-hours cargo transfer."
+    },
+    {
+      "id": "E-902",
+      "title": "Forensic ledger extraction",
+      "kind": "Digital Forensics",
+      "event_date": "2026-03-03",
+      "location": "Delhi",
+      "summary": "Partial decryption of Ledger-Blue reveals transfers matching Meera Sen's analysis drafts."
+    },
+    {
+      "id": "E-903",
+      "title": "Dock 14 inspection",
+      "kind": "Field Operation",
+      "event_date": "2026-03-14",
+      "location": "Chennai",
+      "summary": "Inspectors document tampered refrigeration seals and unsigned handoff forms."
+    }
+  ],
+  "event_entities": [
+    { "event_id": "E-900", "entity_id": "O-200", "role": "subject" },
+    { "event_id": "E-900", "entity_id": "P-101", "role": "analyst" },
+    { "event_id": "E-901", "entity_id": "P-100", "role": "subject" },
+    { "event_id": "E-901", "entity_id": "L-300", "role": "site" },
+    { "event_id": "E-902", "entity_id": "A-400", "role": "evidence" },
+    { "event_id": "E-902", "entity_id": "P-101", "role": "related analyst" },
+    { "event_id": "E-902", "entity_id": "O-200", "role": "matched account holder" },
+    { "event_id": "E-903", "entity_id": "L-300", "role": "site" },
+    { "event_id": "E-903", "entity_id": "O-200", "role": "linked operator" },
+    { "event_id": "E-903", "entity_id": "P-100", "role": "observed coordinator" }
+  ]
+}

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bramha System</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Mission Control</p>
+          <h1>Bramha System</h1>
+          <p class="lede">
+            A cleaner analyst workspace with ingestion and graph investigation front and center.
+          </p>
+        </div>
+        <div class="hero-panel">
+          <p class="hero-label">Active graph edges</p>
+          <p class="hero-stat" id="graph-density">-</p>
+          <p class="hero-subtle">Updated from the current filtered network view.</p>
+        </div>
+      </header>
+
+      <section class="stats stats-compact" id="stats"></section>
+
+      <nav class="workspace-tabs" aria-label="Primary workspace tabs">
+        <button class="workspace-tab active" data-tab="ingestion" type="button">Ingestion</button>
+        <button class="workspace-tab" data-tab="graph" type="button">Graph</button>
+        <button class="workspace-tab" data-tab="entities" type="button">Entities</button>
+        <button class="workspace-tab" data-tab="operations" type="button">Operations</button>
+      </nav>
+
+      <section class="workspace-panels">
+        <section class="tab-panel active" data-panel="ingestion">
+          <div class="priority-layout">
+            <div class="panel panel-priority">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Upload</p>
+                  <h2>Ingest Data</h2>
+                </div>
+                <span class="chip">CSV or JSON</span>
+              </div>
+              <form id="ingest-form" class="ingest-form">
+                <label>
+                  <span class="meta-label">Source name</span>
+                  <input id="source-name" type="text" value="Operator Upload" maxlength="120" required />
+                </label>
+                <label>
+                  <span class="meta-label">Choose file</span>
+                  <input id="file-input" type="file" accept=".csv,.json,application/json,text/csv" required />
+                </label>
+                <div class="button-row">
+                  <button id="preview-button" type="button">Preview fields</button>
+                  <button id="ingest-button" type="submit">Run ingestion</button>
+                </div>
+                <div id="mapping-panel" class="mapping-panel hidden">
+                  <div class="panel-heading compact-heading">
+                    <h3>Field Mapping</h3>
+                    <span id="preview-summary" class="meta-label"></span>
+                  </div>
+                  <div id="mapping-grid" class="mapping-grid"></div>
+                  <div>
+                    <p class="meta-label">Sample records</p>
+                    <pre id="preview-sample" class="preview-sample"></pre>
+                  </div>
+                </div>
+              </form>
+              <p id="ingest-status" class="meta-label">
+                Start with a file upload. Preview first if the columns are non-standard.
+              </p>
+            </div>
+
+            <div class="stack-column">
+              <div class="panel">
+                <div class="panel-heading">
+                  <div>
+                    <p class="eyebrow">Pipeline</p>
+                    <h2>Recent Runs</h2>
+                  </div>
+                </div>
+                <div id="runs" class="events"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-heading">
+                  <div>
+                    <p class="eyebrow">Sources</p>
+                    <h2>Tracked Sources</h2>
+                  </div>
+                </div>
+                <div id="sources" class="events"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="graph">
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Investigation</p>
+                <h2>Network Graph</h2>
+              </div>
+              <div class="graph-actions">
+                <button id="graph-save-button" type="button">Save Subgraph</button>
+                <button id="graph-fit-button" type="button">Fit View</button>
+                <button id="graph-reset-button" type="button">Reset Physics</button>
+              </div>
+            </div>
+            <div class="graph-toolbar">
+              <label class="graph-control">
+                <span class="meta-label">Kind</span>
+                <select id="graph-kind-filter">
+                  <option value="all">All</option>
+                  <option value="person">Person</option>
+                  <option value="organization">Organization</option>
+                  <option value="asset">Asset</option>
+                  <option value="location">Location</option>
+                </select>
+              </label>
+              <label class="graph-control">
+                <span class="meta-label">Min risk</span>
+                <input id="graph-risk-filter" type="range" min="0" max="100" value="0" />
+                <span id="graph-risk-value" class="meta-label">0+</span>
+              </label>
+              <label class="graph-control">
+                <span class="meta-label">Cluster</span>
+                <select id="graph-cluster-mode">
+                  <option value="none">Off</option>
+                  <option value="kind">By kind</option>
+                  <option value="risk">By risk band</option>
+                </select>
+              </label>
+              <label class="graph-toggle">
+                <input id="graph-label-toggle" type="checkbox" checked />
+                <span>Edge labels</span>
+              </label>
+              <label class="graph-toggle">
+                <input id="graph-focus-toggle" type="checkbox" />
+                <span>Focused neighborhood</span>
+              </label>
+            </div>
+            <div class="graph-shell">
+              <div id="graph-stage" class="graph-stage">
+                <svg id="graph-svg" class="graph-svg" viewBox="0 0 900 620" preserveAspectRatio="xMidYMid meet">
+                  <g id="graph-viewport">
+                    <g id="graph-links"></g>
+                    <g id="graph-edge-labels"></g>
+                    <g id="graph-nodes"></g>
+                  </g>
+                </svg>
+                <div id="graph-tooltip" class="graph-tooltip hidden"></div>
+              </div>
+              <div class="graph-sidebar">
+                <div class="graph-legend">
+                  <p class="meta-label">Graph legend</p>
+                  <span class="legend-item"><span class="legend-swatch person"></span>Person</span>
+                  <span class="legend-item"><span class="legend-swatch organization"></span>Organization</span>
+                  <span class="legend-item"><span class="legend-swatch asset"></span>Asset</span>
+                  <span class="legend-item"><span class="legend-swatch location"></span>Location</span>
+                </div>
+                <div id="graph-inspector" class="graph-inspector">
+                  Select a node to inspect its local network.
+                </div>
+                <div class="panel-lite">
+                  <p class="meta-label">Saved subgraphs</p>
+                  <div id="saved-subgraphs" class="saved-subgraphs"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="entities">
+          <div class="workspace">
+            <div class="panel panel-search">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Browse</p>
+                  <h2>Entity Search</h2>
+                </div>
+                <input id="search" type="search" placeholder="Search people, organizations, aliases..." />
+              </div>
+              <div id="entity-list" class="entity-list"></div>
+            </div>
+
+            <div class="panel panel-detail">
+              <div id="entity-detail" class="detail-empty">
+                Select an entity to inspect relationships, events, aliases, and source provenance.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="operations">
+          <div class="operations-grid">
+            <div class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Events</p>
+                  <h2>Recent Events</h2>
+                </div>
+              </div>
+              <div id="events" class="events"></div>
+            </div>
+            <div class="panel panel-quiet">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Notes</p>
+                  <h2>Operations Summary</h2>
+                </div>
+              </div>
+              <div class="meta-stack">
+                <p class="meta-label">Use this tab for operational context while keeping ingestion and graph workspaces clean.</p>
+                <p class="meta-label">The primary analyst flow is now:</p>
+                <p class="chip">1. Ingest</p>
+                <p class="chip">2. Explore graph</p>
+                <p class="chip">3. Review entities</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+  </html>
