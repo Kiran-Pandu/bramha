@@ -60,6 +60,87 @@ The graph view now supports:
 - `GET /api/investigations/subgraphs` for saved graph snapshots
 - `POST /api/investigations/subgraphs` to save the current graph view
 
+## Kafka log pipeline
+
+This repo now includes a Kafka-based Linux log stream:
+
+- producer: [scripts/kafka_linux_producer.py](scripts/kafka_linux_producer.py)
+- consumer: [scripts/kafka_log_consumer.py](scripts/kafka_log_consumer.py)
+- parser: [app/log_parser.py](app/log_parser.py)
+- graph ingestion: [app/db.py](app/db.py)
+
+### Topic flow
+
+- raw topic: `logs.raw.linux`
+- producer sends one log line at a time
+- consumer parses each syslog line
+- parsed logs create or reuse graph entities for host and service
+- each consumed line creates an event and relationships in the graph store
+
+### Environment variables
+
+- `KAFKA_BOOTSTRAP_SERVERS` default `localhost:9092`
+- `KAFKA_RAW_TOPIC` default `logs.raw.linux`
+- `KAFKA_CONSUMER_GROUP` default `bramha-log-consumer`
+- `KAFKA_PRODUCER_DELAY_MS` default `200`
+- `LINUX_LOG_PATH` default `data/Linux.log`
+
+### Run the Kafka workers
+
+Start the local Kafka broker first:
+
+```powershell
+.\scripts\start_kafka_stack.ps1
+```
+
+This starts a local KRaft-mode Kafka broker on `localhost:9092`.
+
+Start the consumer:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python scripts\kafka_log_consumer.py
+```
+
+In another terminal:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python scripts\kafka_linux_producer.py
+```
+
+Useful dev options:
+
+- set `$env:KAFKA_PRODUCER_DELAY_MS="1"` to stream quickly
+- set `$env:KAFKA_MAX_LINES="300"` to send only the first 300 lines while testing
+
+When you are done:
+
+```powershell
+.\scripts\stop_kafka_stack.ps1
+```
+
+### One-click local streaming
+
+To start both the broker and Kafka consumer in the background:
+
+```powershell
+.\scripts\start_streaming_stack.ps1
+```
+
+To stop both:
+
+```powershell
+.\scripts\stop_streaming_stack.ps1
+```
+
+You can also control just the consumer:
+
+```powershell
+.\scripts\start_kafka_consumer.ps1
+.\scripts\stop_kafka_consumer.ps1
+```
+
 ## Where to take it next
 
 - Add authentication and case-based access control

@@ -244,6 +244,35 @@ def init_db() -> None:
                 graph_json TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS log_stream_runs (
+                id TEXT PRIMARY KEY,
+                source_name TEXT NOT NULL,
+                topic TEXT NOT NULL,
+                status TEXT NOT NULL,
+                message_count INTEGER NOT NULL DEFAULT 0,
+                created_entity_count INTEGER NOT NULL DEFAULT 0,
+                created_event_count INTEGER NOT NULL DEFAULT 0,
+                created_relationship_count INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS raw_log_events (
+                id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                topic TEXT NOT NULL,
+                partition_id INTEGER NOT NULL DEFAULT 0,
+                offset_value INTEGER NOT NULL DEFAULT 0,
+                line_number INTEGER NOT NULL DEFAULT 0,
+                raw_line TEXT NOT NULL,
+                parsed_json TEXT NOT NULL,
+                status TEXT NOT NULL,
+                error_message TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (run_id) REFERENCES log_stream_runs(id)
+            );
             """
         )
         existing_columns = {
@@ -717,6 +746,62 @@ def list_ingestion_runs() -> list[dict[str, Any]]:
             """
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def list_log_stream_runs(limit: int = 10) -> list[dict[str, Any]]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                source_name,
+                topic,
+                status,
+                message_count,
+                created_entity_count,
+                created_event_count,
+                created_relationship_count,
+                created_at,
+                updated_at
+            FROM log_stream_runs
+            ORDER BY updated_at DESC, created_at DESC
+            LIMIT ?
+            """,
+            (max(1, min(limit, 100)),),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def list_recent_log_events(limit: int = 50) -> list[dict[str, Any]]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                run_id,
+                source_name,
+                topic,
+                partition_id,
+                offset_value,
+                line_number,
+                raw_line,
+                parsed_json,
+                status,
+                error_message,
+                created_at
+            FROM raw_log_events
+            ORDER BY created_at DESC, offset_value DESC
+            LIMIT ?
+            """,
+            (max(1, min(limit, 200)),),
+        ).fetchall()
+    return [
+        {
+            **dict(row),
+            "parsed": json.loads(row["parsed_json"]),
+        }
+        for row in rows
+    ]
 
 
 def list_investigation_subgraphs() -> list[dict[str, Any]]:
@@ -1314,6 +1399,168 @@ def create_relationship(
         ),
     )
     return int(cursor.rowcount > 0)
+
+
+def ensure_log_stream_run(source_name: str, topic: str) -> dict[str, Any]:
+    now = utc_now()
+    with get_connection() as connection:
+        row = connection.execute(
+            """
+            SELECT id, source_name, topic, status, message_count, created_entity_count,
+                   created_event_count, created_relationship_count, created_at, updated_at
+            FROM log_stream_runs
+            WHERE source_name = ? AND topic = ? AND status = 'running'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (source_name, topic),
+        ).fetchone()
+        if row:
+            return dict(row)
+
+        run_id = make_id("LSR")
+        connection.execute(
+            """
+            INSERT INTO log_stream_runs (
+                id, source_name, topic, status, message_count, created_entity_count,
+                created_event_count, created_relationship_count, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (run_id, source_name, topic, "running", 0, 0, 0, 0, now, now),
+        )
+        connection.commit()
+        return {
+            "id": run_id,
+            "source_name": source_name,
+            "topic": topic,
+            "status": "running",
+            "message_count": 0,
+            "created_entity_count": 0,
+            "created_event_count": 0,
+            "created_relationship_count": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
+
+
+def ingest_stream_log_event(
+    source_name: str,
+    topic: str,
+    partition_id: int,
+    offset_value: int,
+    line_number: int,
+    raw_line: str,
+    parsed: dict[str, Any],
+) -> dict[str, Any]:
+    run = ensure_log_stream_run(source_name, topic)
+    run_id = run["id"]
+    now = utc_now()
+
+    with get_connection() as connection:
+        existing = connection.execute(
+            """
+            SELECT id
+            FROM raw_log_events
+            WHERE topic = ? AND partition_id = ? AND offset_value = ?
+            LIMIT 1
+            """,
+            (topic, partition_id, offset_value),
+        ).fetchone()
+        if existing:
+            return {"status": "duplicate", "created_entity_count": 0, "created_event_count": 0, "created_relationship_count": 0}
+
+        host_entity = {
+            "name": parsed["host"],
+            "kind": "Asset",
+            "description": f"Host observed in Linux syslog stream {source_name}.",
+            "risk_score": parsed.get("risk_score", 35),
+            "location": parsed["host"],
+            "aliases": [],
+        }
+        service_entity = {
+            "name": parsed["service"],
+            "kind": "Asset",
+            "description": f"Service/process observed in Linux syslog stream {source_name}.",
+            "risk_score": parsed.get("risk_score", 25),
+            "location": parsed["host"],
+            "aliases": [],
+        }
+
+        host_id, created_host = ensure_entity(connection, host_entity, "", run_id, now)
+        service_id, created_service = ensure_entity(connection, service_entity, "", run_id, now)
+
+        event_id = make_id("EVT")
+        connection.execute(
+            """
+            INSERT INTO events (id, title, kind, event_date, location, summary)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event_id,
+                parsed["title"],
+                "Log Entry",
+                parsed["timestamp"],
+                parsed["host"],
+                parsed["message"],
+            ),
+        )
+        add_event_entity(connection, event_id, host_id, "host")
+        add_event_entity(connection, event_id, service_id, "service")
+
+        relationship_count = 0
+        relationship_count += create_relationship(connection, host_id, service_id, "runs_service", "", event_id, now)
+        relationship_count += create_relationship(connection, service_id, host_id, "service_runs_on", "", event_id, now)
+
+        connection.execute(
+            """
+            INSERT INTO raw_log_events (
+                id, run_id, source_name, topic, partition_id, offset_value, line_number,
+                raw_line, parsed_json, status, error_message, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                make_id("LOG"),
+                run_id,
+                source_name,
+                topic,
+                partition_id,
+                offset_value,
+                line_number,
+                raw_line,
+                json.dumps(parsed, sort_keys=True),
+                "processed",
+                "",
+                now,
+            ),
+        )
+
+        connection.execute(
+            """
+            UPDATE log_stream_runs
+            SET message_count = message_count + 1,
+                created_entity_count = created_entity_count + ?,
+                created_event_count = created_event_count + 1,
+                created_relationship_count = created_relationship_count + ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                int(created_host) + int(created_service),
+                relationship_count,
+                now,
+                run_id,
+            ),
+        )
+        connection.commit()
+
+    return {
+        "status": "processed",
+        "created_entity_count": int(created_host) + int(created_service),
+        "created_event_count": 1,
+        "created_relationship_count": relationship_count,
+    }
 
 
 def serialize_entity(row: sqlite3.Row) -> dict[str, Any]:

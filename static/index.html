@@ -28,6 +28,7 @@
       <nav class="workspace-tabs" aria-label="Primary workspace tabs">
         <button class="workspace-tab active" data-tab="ingestion" type="button">Ingestion</button>
         <button class="workspace-tab" data-tab="graph" type="button">Graph</button>
+        <button class="workspace-tab" data-tab="live-logs" type="button">Live Logs</button>
         <button class="workspace-tab" data-tab="entities" type="button">Entities</button>
         <button class="workspace-tab" data-tab="operations" type="button">Operations</button>
       </nav>
@@ -167,6 +168,51 @@
                 <div class="panel-lite">
                   <p class="meta-label">Saved subgraphs</p>
                   <div id="saved-subgraphs" class="saved-subgraphs"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="live-logs">
+          <div class="live-layout">
+            <div class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Streaming</p>
+                  <h2>Recent Kafka Logs</h2>
+                </div>
+                <div class="live-actions">
+                  <span id="live-log-status" class="chip">Auto-refresh every 3s</span>
+                  <button id="live-refresh-button" type="button">Refresh now</button>
+                </div>
+              </div>
+              <div id="live-log-feed" class="live-log-feed"></div>
+            </div>
+
+            <div class="stack-column">
+              <div class="panel">
+                <div class="panel-heading">
+                  <div>
+                    <p class="eyebrow">Stream Health</p>
+                    <h2>Kafka Runs</h2>
+                  </div>
+                </div>
+                <div id="log-stream-runs" class="events"></div>
+              </div>
+              <div class="panel panel-quiet">
+                <div class="panel-heading">
+                  <div>
+                    <p class="eyebrow">Live Notes</p>
+                    <h2>What You’re Seeing</h2>
+                  </div>
+                </div>
+                <div class="meta-stack">
+                  <p class="meta-label">This tab polls the backend and shows the latest consumed Kafka log lines.</p>
+                  <p class="meta-label">As new lines arrive, the database, graph, and summary stats are refreshed in the same app.</p>
+                  <p class="chip">Kafka Producer</p>
+                  <p class="chip">Kafka Consumer</p>
+                  <p class="chip">Graph Updates</p>
                 </div>
               </div>
             </div>

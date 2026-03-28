@@ -4,6 +4,11 @@ const state = {
   preview: null,
   graphData: null,
   graph: null,
+  activeTab: "ingestion",
+  liveLogs: [],
+  logStreamRuns: [],
+  liveRefreshTimer: null,
+  liveRefreshInFlight: false,
   graphFilters: {
     kind: "all",
     minRisk: 0,
@@ -89,11 +94,15 @@ function card(title, subtitle, body) {
 function bindTabs() {
   for (const button of document.querySelectorAll("[data-tab]")) {
     button.addEventListener("click", () => {
+      state.activeTab = button.dataset.tab;
       for (const tab of document.querySelectorAll("[data-tab]")) {
         tab.classList.toggle("active", tab === button);
       }
       for (const panel of document.querySelectorAll("[data-panel]")) {
         panel.classList.toggle("active", panel.dataset.panel === button.dataset.tab);
+      }
+      if (state.activeTab === "live-logs") {
+        refreshLiveLogs();
       }
     });
   }
@@ -270,6 +279,55 @@ function renderSources(sources) {
         )
         .join("")
     : `<p class="meta-label">No sources tracked yet.</p>`;
+}
+
+function renderLogStreamRuns(runs) {
+  const container = document.getElementById("log-stream-runs");
+  container.innerHTML = runs.length
+    ? runs
+        .map((run) =>
+          card(
+            run.source_name,
+            `${run.status} - ${run.topic}`,
+            `
+              <p>messages ${run.message_count}</p>
+              <p>entities ${run.created_entity_count} - events ${run.created_event_count}</p>
+              <p>relationships ${run.created_relationship_count}</p>
+              <p class="meta-label">Updated ${run.updated_at}</p>
+            `
+          )
+        )
+        .join("")
+    : `<p class="meta-label">No Kafka stream runs yet.</p>`;
+}
+
+function renderLiveLogs(logs) {
+  const container = document.getElementById("live-log-feed");
+  container.innerHTML = logs.length
+    ? logs
+        .map((entry) => {
+          const parsed = entry.parsed || {};
+          return `
+            <article class="live-log-card">
+              <div class="live-log-top">
+                <div>
+                  <strong>${escapeHtml(parsed.title || parsed.service || "Log event")}</strong>
+                  <p class="meta-label">${escapeHtml(parsed.timestamp || entry.created_at)} - ${escapeHtml(parsed.host || "unknown host")}</p>
+                </div>
+                <span class="chip">${escapeHtml(parsed.service || "unknown service")}</span>
+              </div>
+              <p>${escapeHtml(parsed.message || entry.raw_line)}</p>
+              <div class="live-log-meta">
+                <span class="chip">line ${entry.line_number}</span>
+                <span class="chip">offset ${entry.offset_value}</span>
+                <span class="chip">${escapeHtml(entry.topic)}</span>
+              </div>
+              <pre class="live-log-raw">${escapeHtml(entry.raw_line)}</pre>
+            </article>
+          `;
+        })
+        .join("")
+    : `<p class="meta-label">No streamed logs received yet.</p>`;
 }
 
 function renderEntityList() {
@@ -935,6 +993,41 @@ async function refreshDashboard() {
   renderSavedSubgraphs();
 }
 
+async function refreshLiveLogs() {
+  if (state.liveRefreshInFlight) {
+    return;
+  }
+  state.liveRefreshInFlight = true;
+  const status = document.getElementById("live-log-status");
+  try {
+    const [runs, logs] = await Promise.all([
+      getJson("/api/logs/runs?limit=8"),
+      getJson("/api/logs/recent?limit=40"),
+    ]);
+    state.logStreamRuns = runs;
+    state.liveLogs = logs;
+    renderLogStreamRuns(runs);
+    renderLiveLogs(logs);
+    status.textContent = `Live - ${logs.length} recent log lines`;
+    await refreshDashboard();
+  } catch (error) {
+    status.textContent = `Live refresh failed: ${error.message}`;
+  } finally {
+    state.liveRefreshInFlight = false;
+  }
+}
+
+function startLiveRefreshLoop() {
+  if (state.liveRefreshTimer) {
+    window.clearInterval(state.liveRefreshTimer);
+  }
+  state.liveRefreshTimer = window.setInterval(() => {
+    if (state.activeTab === "live-logs") {
+      refreshLiveLogs();
+    }
+  }, 3000);
+}
+
 async function readSelectedFile() {
   const fileInput = document.getElementById("file-input");
   const file = fileInput.files?.[0];
@@ -1038,12 +1131,14 @@ async function init() {
   applyGraphFilters(state.graphFilters);
   await refreshDashboard();
   await loadEntities();
+  startLiveRefreshLoop();
 
   document.getElementById("search").addEventListener("input", async (event) => {
     await loadEntities(event.target.value.trim());
   });
   document.getElementById("preview-button").addEventListener("click", handlePreview);
   document.getElementById("ingest-form").addEventListener("submit", handleIngest);
+  document.getElementById("live-refresh-button").addEventListener("click", refreshLiveLogs);
 }
 
 init().catch((error) => {

@@ -17,6 +17,8 @@ from app.db import (
     init_db,
     list_investigation_subgraphs,
     list_ingestion_runs,
+    list_log_stream_runs,
+    list_recent_log_events,
     list_sources,
     preview_ingest_file,
     save_investigation_subgraph,
@@ -92,6 +94,16 @@ def sources() -> list[dict]:
 @app.get("/api/ingest/runs")
 def ingestion_runs() -> list[dict]:
     return list_ingestion_runs()
+
+
+@app.get("/api/logs/runs")
+def log_stream_runs(limit: int = Query(default=10, ge=1, le=100)) -> list[dict]:
+    return list_log_stream_runs(limit)
+
+
+@app.get("/api/logs/recent")
+def recent_logs(limit: int = Query(default=50, ge=1, le=200)) -> list[dict]:
+    return list_recent_log_events(limit)
 
 
 @app.get("/api/investigations/subgraphs")

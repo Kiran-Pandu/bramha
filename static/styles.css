@@ -44,7 +44,8 @@ select {
 .hero,
 .workspace,
 .priority-layout,
-.operations-grid {
+.operations-grid,
+.live-layout {
   display: grid;
   gap: 20px;
 }
@@ -188,6 +189,10 @@ h1 {
   grid-template-columns: 1.2fr 0.8fr;
 }
 
+.live-layout {
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+}
+
 .panel-heading {
   display: flex;
   gap: 12px;
@@ -249,7 +254,8 @@ button:disabled {
 
 .entity-list,
 .events,
-.saved-subgraphs {
+.saved-subgraphs,
+.live-log-feed {
   display: grid;
   gap: 12px;
 }
@@ -257,7 +263,8 @@ button:disabled {
 .entity-card,
 .event-card,
 .link-card,
-.subgraph-card {
+.subgraph-card,
+.live-log-card {
   padding: 14px;
   border-radius: 16px;
   border: 1px solid var(--line);
@@ -325,6 +332,25 @@ button:disabled {
   width: 100%;
 }
 
+.live-log-top,
+.live-log-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.live-log-raw {
+  margin: 12px 0 0;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(2, 8, 16, 0.9);
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .mapping-panel {
   display: grid;
   gap: 14px;
@@ -352,7 +378,8 @@ button:disabled {
 }
 
 .graph-actions,
-.graph-toolbar {
+.graph-toolbar,
+.live-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -361,6 +388,15 @@ button:disabled {
 .graph-actions button {
   width: auto;
   min-width: 120px;
+}
+
+.live-actions {
+  align-items: center;
+}
+
+.live-actions button {
+  width: auto;
+  min-width: 140px;
 }
 
 .graph-control {
@@ -554,6 +590,7 @@ button:disabled {
   .priority-layout,
   .workspace,
   .operations-grid,
+  .live-layout,
   .graph-shell,
   .stats-compact {
     grid-template-columns: 1fr;
